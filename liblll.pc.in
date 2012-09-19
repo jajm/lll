@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: liblll
+Description: Log Library for Libraries
+Version: @VERSION@
+Libs: -L${libdir} -llll
+Cflags: -I${includedir}
