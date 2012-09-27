@@ -1,20 +1,20 @@
 /*
  * Copyright 2012 Julian Maurice
  *
- * This file is part of liblll.
+ * This file is part of lll.
  *
- * liblll is free software: you can redistribute it and/or modify
+ * lll is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Foobar is distributed in the hope that it will be useful,
+ * lll is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with liblll.  If not, see <http://www.gnu.org/licenses/>.
+ * along with lll.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef lll_h_included
@@ -23,148 +23,87 @@
 #include <stdio.h>    // for FILE
 #include <stdarg.h>   // for va_list
 
-/* liblll is a very simple log library designed for libraries.
+/*
+ * DESCRIPTION
+ *
+ * liblll is a very simple log library designed for libraries.
  *
  * It provides wrapper functions around printf's family functions with a simple
  * templating system.
- * These functions are designed to be wrapped into macros in your own library.
- * Below are explanations about each parameter. */
+ * These functions are designed to be wrapped into macros or functions in your
+ * own library.
+ */
 
-/* == Parameters specifications ==
+/*
+ * TEMPLATE SPECIFICATION
  *
- * Only the first parameter is mandatory, all others can be NULL or 0 (with an
- * exception for va_ptr in lll_log).
+ * template parameter is a string describing the log format. It can contain the
+ * followings special sequences of characters:
  *
+ * %T    Current date and time (YYYY-mm-dd HH:MM:SS).
  *
- * -- template --
+ * %T{fmt}    Current date and time in format specified by fmt (see strftime).
  *
- * template can contain:
+ * %p    Print PID.
  *
- * %T{fmt}: date and time, where fmt is in strftime format.
- *          Eg. "%T{%D %T}" prints with this format: "MM/DD/YY HH:MM:SS"
- *          fmt is optional, so you can specify %T alone. fmt will default to
- *          "%F %T" (YYYY-MM-DD HH:MM:SS)
+ * %P    Print PPID.
  *
- * %d: domain (domain parameter)
+ * %m    Print message passed in parameter. If ommited, the message is printed
+ *       at the end of template.
+ *       (See below to know how to pass extra parameters).
  *
- * %l: log level (level parameter)
+ * $N    Where N is a digit between 0 and 9. Print the (N+1)th parameter.
+ *       (See below to know how to pass extra parameters).
  *
- * %F: filename (filename parameter)
+ * ?N|if_true|if_false|    Where N is a digit between 0 and 9. Check if the
+ *                         (N+1)th parameter is true (!= 0) and process if_true
+ *                         if appropriate. Otherwise process if_false.
+ *                         '|' delimiter can be any character. If delimiter is
+ *                         present in if_true or if_false, it must be escaped
+ *                         with '\'.
+ *                         if_true and if_false can contain any special
+ *                         sequences of characters allowed in template.
  *
- * %f: function name (function parameter)
+ * \C    Where C is any character. Escape C so that it is not interpreted as a
+ *       special character (print C as is).
+ *       Note: backslash (\) have to appear twice in your string to be
+ *       considered as a real backslash character. So you have to write "\\C".
  *
- * %L: line number (line parameter)
+ * Note: a newline character will be automatically appended to template.
+ */
+
+/*
+ * EXTRA PARAMETERS
  *
- * %m: message (fmt parameter + additional parameters).
- *     This last one is optional and message will be appended to the end of
- *     output string if not specified.
+ * Extra parameters list is divided in three distinct parts:
+ *   - a list of couple (fmt, value) where fmt is a string that contains a
+ *   single conversion specification (see printf) which ends with the conversion
+ *   specifier character (no trailing spaces allowed), and value is the value
+ *   that will be printed using the given conversion specification.
+ *   First couple corresponds to $0 in template, second parameter is $1, ...
+ *   - two NULL parameters, to separate from other part.
+ *   - message to print (%m) in printf format, followed by any needed parameters
  *
- * %%: '%' character
+ * Example:
  *
- * Any other character is printed as is.
- *
- *
- * -- domain --
- *
- * A string that can be used to identify from which program/library the log is
- * coming (in case the library is used by multiple programs/libraries at the
- * same time.
- * Template: %d
- *
- *
- * -- current_level --
- *
- * Current log level of your program/library. Defines if a message will be
- * printed or not.
- *
- *
- * -- level --
- *
- * Level of message currently being printed. If greater than current_level,
- * message will not be printed.
- * Template: %l
- *
- *
- * -- filename --
- *
- * Name of file related to the message, if any.
- * Template: %F
- *
- *
- * -- function --
- *
- * Name of function related to the message, if any.
- * Template: %f
- *
- *
- * -- line --
- *
- * Line number in file.
- * Template: %L
- *
- *
- * -- fmt --
- *
- * Message to log, in printf-compatible format.
- *
- *
- * -- ... ---
- *
- * All other parameters are passed to vfprintf with fmt
- *
+ * int var = 42;
+ * lll_print("%m at $0:$1", "%s", "main.c", "%d", 3, NULL, NULL, "var=%d", var);
+ * will print: "var=42 at main.c:3"
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void
-lll_log_to_stream(
-	FILE *stream,
-	const char *template,
-	const char *domain,
-	int current_level,
-	int level,
-	const char *filename,
-	const char *function,
-	int line,
-	const char *fmt,
-	...
-);
-
-/* Log to file.
- * File is opened and closed each time this function is called. If you plan to
- * log very frequently and are concerned about performance, you should consider
- * using lll_log_to_stream instead. */
-void
-lll_log_to_file(
-	const char *filepath,
-	const char *template,
-	const char *domain,
-	int current_level,
-	int level,
-	const char *filename,
-	const char *function,
-	int line,
-	const char *fmt,
-	...
-);
-
-/* Functions above are just wrappers around this function.
- * You can use it directly if you have a va_list, but there is no check against
- * current log level (because it's not in parameters list), so you have to check
- * by yourself. */
-void lll_log(
-	FILE *stream,
-	const char *template,
-	const char *domain,
-	int level,
-	const char *filename,
-	const char *function,
-	int line,
-	const char *fmt,
-	va_list va_ptr
-);
+/* Print to stdout */
+void lll_print(const char *template, ...);
+void lll_vprint(const char *template, va_list va_ptr);
+/* Print to file stream */
+void lll_fprint(FILE *stream, const char *template, ...);
+void lll_vfprint(FILE *stream, const char *template, va_list va_ptr);
+/* Print to file path */
+void lll_pprint(const char *path, const char *template, ...);
+void lll_vpprint(const char *path, const char *template, va_list va_ptr);
 
 #ifdef __cplusplus
 }
