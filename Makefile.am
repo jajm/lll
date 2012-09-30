@@ -1,4 +1,4 @@
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = liblll.pc
+pkgconfig_DATA = lll.pc
 
 SUBDIRS = src include t

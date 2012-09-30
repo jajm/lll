@@ -31,7 +31,7 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([memmove])
 
 AC_CONFIG_FILES([
-	liblll.pc
+	lll.pc
 	Makefile
 	src/Makefile
 	include/Makefile
