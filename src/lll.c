@@ -103,12 +103,73 @@ unsigned int build_params(parameter_t params[10], va_list va_ptr)
 	return i;
 }
 
+typedef struct {
+	char *buf;
+	unsigned pos;
+	size_t size;
+} lll_buffer_t;
+
+void lll_buffer_init(lll_buffer_t *b)
+{
+	b->size = BUFSIZ;
+	b->pos = 0;
+	b->buf = calloc(b->size, sizeof(char));
+}
+
+void lll_buffer_free(lll_buffer_t *b)
+{
+	free(b->buf);
+}
+
+void lll_buffer_ensure_large_enough(lll_buffer_t *b, size_t length)
+{
+	while (b->size - b->pos < length + 1) {
+		b->size = b->size * b->size;
+	}
+	b->buf = realloc(b->buf, b->size);
+}
+
+void bputc(char c, lll_buffer_t *b)
+{
+	lll_buffer_ensure_large_enough(b, 1);
+	b->buf[b->pos++] = c;
+	b->buf[b->pos] = '\0';
+}
+
+void bputs(const char *s, lll_buffer_t *b)
+{
+	while (*s != '\0') {
+		bputc(*s, b);
+		s++;
+	}
+}
+
+void vbprintf(lll_buffer_t *b, const char *fmt, va_list va_ptr)
+{
+	int count;
+
+	if (fmt != NULL) {
+		lll_buffer_ensure_large_enough(b, strlen(fmt));
+		count = vsprintf(b->buf + b->pos, fmt, va_ptr);
+		b->pos += count;
+	}
+}
+
+void bprintf(lll_buffer_t *b, const char *fmt, ...)
+{
+	va_list va_ptr;
+
+	va_start(va_ptr, fmt);
+	vbprintf(b, fmt, va_ptr);
+	va_end(va_ptr);
+}
+
 #define TIME_BUFFER_SIZE 128
 #define TIME_FMT_BUFFER_SIZE 64
 
-void process_time(FILE *stream, const char **tpl_cursor)
+void process_time(lll_buffer_t *buffer, const char **tpl_cursor)
 {
-	char buffer[TIME_BUFFER_SIZE];
+	char buf[TIME_BUFFER_SIZE];
 	char fmt[TIME_FMT_BUFFER_SIZE];
 	time_t t;
 	struct tm *tm;
@@ -140,38 +201,38 @@ void process_time(FILE *stream, const char **tpl_cursor)
 	if (valid) {
 		t = time(NULL);
 		tm = localtime(&t);
-		strftime(buffer, TIME_BUFFER_SIZE, fmt, tm);
-		fputs(buffer, stream);
+		strftime(buf, TIME_BUFFER_SIZE, fmt, tm);
+		bputs(buf, buffer);
 
 		*tpl_cursor = ptr;
 	}
 }
 
-void process_pid(FILE *stream, const char **tpl_cursor)
+void process_pid(lll_buffer_t *buffer, const char **tpl_cursor)
 {
 	const char *ptr = *tpl_cursor;
 	pid_t pid;
 
 	if (*ptr == '%' && *(ptr+1) == 'p') {
 		pid = getpid();
-		fprintf(stream, "%u", pid);
+		bprintf(buffer, "%u", pid);
 		*tpl_cursor = ptr+1;
 	}
 }
 
-void process_ppid(FILE *stream, const char **tpl_cursor)
+void process_ppid(lll_buffer_t *buffer, const char **tpl_cursor)
 {
 	const char *ptr = *tpl_cursor;
 	pid_t ppid;
 
 	if (*ptr == '%' && *(ptr+1) == 'P') {
 		ppid = getppid();
-		fprintf(stream, "%u", ppid);
+		bprintf(buffer, "%u", ppid);
 		*tpl_cursor = ptr+1;
 	}
 }
 
-void process_special(FILE *stream, const char **tpl_cursor, const char *fmt,
+void process_special(lll_buffer_t *buffer, const char **tpl_cursor, const char *fmt,
 	va_list va_ptr, int *mprinted)
 {
 	const char *ptr = *tpl_cursor;
@@ -179,21 +240,21 @@ void process_special(FILE *stream, const char **tpl_cursor, const char *fmt,
 	if (*ptr == '%') {
 		switch (*(ptr+1)) {
 			case 'T':
-				process_time(stream, &ptr);
+				process_time(buffer, &ptr);
 				break;
 			case 'p':
-				process_pid(stream, &ptr);
+				process_pid(buffer, &ptr);
 				break;
 			case 'P':
-				process_ppid(stream, &ptr);
+				process_ppid(buffer, &ptr);
 				break;
 			case 'm':
-				vfprintf(stream, fmt, va_ptr);
+				vbprintf(buffer, fmt, va_ptr);
 				ptr++;
 				*mprinted = 1;
 				break;
 			case '%':
-				fputc('%', stream);
+				bputc('%', buffer);
 				ptr++;
 				break;
 		}
@@ -202,7 +263,7 @@ void process_special(FILE *stream, const char **tpl_cursor, const char *fmt,
 
 }
 
-void process_parameter(FILE *stream, const char **tpl_cursor,
+void process_parameter(lll_buffer_t *buffer, const char **tpl_cursor,
 	parameter_t params[10])
 {
 	const char *ptr = *tpl_cursor;
@@ -214,13 +275,13 @@ void process_parameter(FILE *stream, const char **tpl_cursor,
 			p = &params[*ptr - '0'];
 			switch (p->type) {
 				case INTEGER:
-					fprintf(stream, p->format, p->data.i);
+					bprintf(buffer, p->format, p->data.i);
 					break;
 				case DOUBLE:
-					fprintf(stream, p->format, p->data.d);
+					bprintf(buffer, p->format, p->data.d);
 					break;
 				case LONGDOUBLE:
-					fprintf(stream, p->format, p->data.ld);
+					bprintf(buffer, p->format, p->data.ld);
 					break;
 			}
 			*tpl_cursor = ptr;
@@ -249,10 +310,10 @@ void skip_template_block(const char **tpl_cursor)
 	}
 }
 
-void process_template_block(FILE *, const char **, parameter_t[10],
+void process_template_block(lll_buffer_t *, const char **, parameter_t[10],
 	const char *, va_list, int *);
 
-void process_conditional(FILE *stream, const char **tpl_cursor,
+void process_conditional(lll_buffer_t *buffer, const char **tpl_cursor,
 	parameter_t params[10], const char *fmt, va_list va_ptr, int *mprinted)
 {
 	const char *ptr = *tpl_cursor;
@@ -264,13 +325,13 @@ void process_conditional(FILE *stream, const char **tpl_cursor,
 			i = (*ptr) - '0';
 			if (params[i].data.i != 0) {
 				ptr++;
-				process_template_block(stream, &ptr,
+				process_template_block(buffer, &ptr,
 					params, fmt, va_ptr, mprinted);
 				skip_template_block(&ptr);
 			} else {
 				ptr++;
 				skip_template_block(&ptr);
-				process_template_block(stream, &ptr,
+				process_template_block(buffer, &ptr,
 					params, fmt, va_ptr, mprinted);
 			}
 			*tpl_cursor = ptr;
@@ -278,21 +339,21 @@ void process_conditional(FILE *stream, const char **tpl_cursor,
 	}
 }
 
-void process_char(FILE *stream, const char **tpl_cursor,
+void process_char(lll_buffer_t *buffer, const char **tpl_cursor,
 	parameter_t params[10], const char *fmt, va_list va_ptr, int *mprinted)
 {
 	const char *ptr = *tpl_cursor;
 
 	switch (*ptr) {
 		case '%':
-			process_special(stream, &ptr, fmt, va_ptr,
+			process_special(buffer, &ptr, fmt, va_ptr,
 				mprinted);
 			break;
 		case '$':
-			process_parameter(stream, &ptr, params);
+			process_parameter(buffer, &ptr, params);
 			break;
 		case '?':
-			process_conditional(stream, &ptr, params, fmt,
+			process_conditional(buffer, &ptr, params, fmt,
 				va_ptr, mprinted);
 			break;
 	}
@@ -300,13 +361,13 @@ void process_char(FILE *stream, const char **tpl_cursor,
 	 * to be printed before continuing */
 	if (ptr == *tpl_cursor) {
 		if (*ptr == '\\') ptr++;
-		fputc(*ptr, stream);
+		bputc(*ptr, buffer);
 	}
 
 	*tpl_cursor = ptr;
 }
 
-void process_template_block(FILE *stream, const char **tpl_cursor,
+void process_template_block(lll_buffer_t *buffer, const char **tpl_cursor,
 	parameter_t params[10], const char *fmt, va_list va_ptr, int *mprinted)
 {
 	const char *ptr = *tpl_cursor;
@@ -314,20 +375,20 @@ void process_template_block(FILE *stream, const char **tpl_cursor,
 
 	ptr++;
 	while (*ptr != '\0' && !(*ptr == delim && *(ptr-1) != '\\')) {
-		process_char(stream, &ptr, params, fmt, va_ptr,
+		process_char(buffer, &ptr, params, fmt, va_ptr,
 			mprinted);
 		if (*ptr != '\0') ptr++;
 	}
 	*tpl_cursor = ptr;
 }
 
-void process_template(FILE *stream, const char **tpl_cursor,
+void process_template(lll_buffer_t *buffer, const char **tpl_cursor,
 	parameter_t params[10], const char *fmt, va_list va_ptr, int *mprinted)
 {
 	const char *ptr = *tpl_cursor;
 
 	while (*ptr != '\0') {
-		process_char(stream, &ptr, params, fmt, va_ptr,
+		process_char(buffer, &ptr, params, fmt, va_ptr,
 			mprinted);
 		if (*ptr != '\0') ptr++;
 	}
@@ -341,20 +402,25 @@ void lll_vfprint(FILE *stream, const char *template, va_list va_ptr)
 	parameter_t params[10];
 	const char *fmt;
 	int mprinted = 0;
+	lll_buffer_t buffer;
 
 	build_params(params, va_ptr);
 
 	fmt = va_arg(va_ptr, const char *);
 	if (fmt == NULL) fmt = va_arg(va_ptr, const char *);
 
-	process_template(stream, &template, params, fmt, va_ptr,
-		&mprinted);
+	lll_buffer_init(&buffer);
+
+	process_template(&buffer, &template, params, fmt, va_ptr, &mprinted);
 
 	if (!mprinted) {
-		fputc(' ', stream);
-		vfprintf(stream, fmt, va_ptr);
+		bputc(' ', &buffer);
+		vbprintf(&buffer, fmt, va_ptr);
 	}
-	fprintf(stream, "\n");
+	bprintf(&buffer, "\n");
+
+	fputs(buffer.buf, stream);
+	lll_buffer_free(&buffer);
 }
 
 void lll_vprint(const char *template, va_list va_ptr)

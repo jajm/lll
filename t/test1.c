@@ -20,6 +20,13 @@
 
 int main(void)
 {
+	char longmsg[BUFSIZ];
+
+	for (int i=0; i<BUFSIZ-1; i++) {
+		longmsg[i] = 'a';
+	}
+	longmsg[BUFSIZ-1] = 0;
+
 	logs(stdout, "", NULL, NULL, "message");
 	logs(stdout, "", NULL, NULL, "message with param %d %s", 2, "deux");
 	logs(stdout, "%m", NULL, NULL, "message");
@@ -48,6 +55,8 @@ int main(void)
 	logs(stdout, "$a", "%d", 2, NULL, NULL, "message");
 	logs(stdout, "double $0", "%e", 123.456, NULL, NULL, "message");
 	logs(stdout, "long double $0", "%Le", 123.456L, NULL, NULL, "message");
+	logs(stdout, "%%test %m%%", NULL, NULL, "message");
+	logs(stdout, "[%T] %m end", NULL, NULL, longmsg);
 	logf("/tmp/test.log", "%m at $0", "%s", __FILE__, NULL, NULL, "message");
 
 	return 0;
