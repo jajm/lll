@@ -1,0 +1,7 @@
+The Debian Package lll
+----------------------------
+
+lll is a simple C library for handling logs. It is specially designed to be
+used in other libraries
+
+ -- Julian Maurice <jajm@jajm.org>  Wed, 25 Sep 2013 05:46:36 +0200

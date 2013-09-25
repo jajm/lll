@@ -1,0 +1,23 @@
+Source: lll
+Priority: extra
+Maintainer: Julian Maurice <jajm@jajm.org>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.4
+Section: libs
+Homepage: https://github.com/jajm/lll
+
+Package: lll-dev
+Section: libdevel
+Architecture: any
+Depends: lll (= ${binary:Version}), ${misc:Depends}
+Description: Log Library for Libraries (development files)
+ lll is a simple C library for handling logs. It is specially designed to be
+ used in other libraries
+
+Package: lll
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Log Library for Libraries
+ lll is a simple C library for handling logs. It is specially designed to be
+ used in other libraries
