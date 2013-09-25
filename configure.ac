@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([lll], [0.1], [jajm@jajm.org])
+AC_INIT([lll], [1.0], [jajm@jajm.org])
 AM_INIT_AUTOMAKE([-Wall -Werror silent-rules subdir-objects])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
