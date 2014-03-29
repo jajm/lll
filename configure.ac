@@ -1,23 +1,23 @@
 AC_PREREQ([2.65])
-AC_INIT([lll], [1.0], [jajm@jajm.org])
+LT_PREREQ([2.4.2])
+
+AC_INIT([lll], [1.0.0], [jajm@jajm.org])
+LT_INIT()
 AM_INIT_AUTOMAKE([-Wall -Werror silent-rules subdir-objects])
+
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 
 # Libtool version info
-LLL_CUR=0
-LLL_REV=0
-LLL_AGE=0
-AC_SUBST(LLL_CUR)
-AC_SUBST(LLL_REV)
-AC_SUBST(LLL_AGE)
+AC_SUBST(LIBTOOL_CUR, 0)
+AC_SUBST(LIBTOOL_REV, 0)
+AC_SUBST(LIBTOOL_AGE, 0)
 
 # Check for programs
 AC_PROG_AWK
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
-AC_PROG_LIBTOOL
 AM_PROG_AR
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
