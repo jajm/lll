@@ -1,7 +1,7 @@
 AC_PREREQ([2.65])
 LT_PREREQ([2.4.2])
 
-AC_INIT([lll], [1.0.0], [jajm@jajm.org])
+AC_INIT([lll], [1.0.1], [jajm@jajm.org])
 LT_INIT()
 AM_INIT_AUTOMAKE([-Wall -Werror silent-rules subdir-objects])
 
